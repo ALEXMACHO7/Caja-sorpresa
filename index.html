@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recompensa Única Completa</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #111424;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .estado-recompensa {
+            font-size: 20px;
+            margin-bottom: 30px;
+            padding: 12px 25px;
+            border-radius: 15px;
+            background: #1b1f38;
+            border: 2px solid #28315a;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            max-width: 90%;
+        }
+
+        .contenedor-caja {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            perspective: 1000px;
+        }
+
+        .caja {
+            width: 100%;
+            height: 100%;
+            background-color: #ffaa00; 
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 15px 25px rgba(0,0,0,0.6);
+            transition: all 0.3s ease;
+            border: 5px solid #cc8800;
+            cursor: pointer;
+        }
+
+        .caja::before {
+            content: '';
+            position: absolute;
+            top: 42%;
+            left: 0;
+            width: 100%;
+            height: 16%;
+            background-color: #ff3366; 
+        }
+
+        .caja.disponible:hover {
+            transform: scale(1.08);
+            animation: sacudir 0.4s infinite;
+        }
+
+        @keyframes sacudir {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-2px, -1px) rotate(-1deg); }
+            40% { transform: translate(-1px, 1px) rotate(1deg); }
+            60% { transform: translate(1px, -1px) rotate(-1deg); }
+            100% { transform: translate(1px, 1px) rotate(0deg); }
+        }
+
+        .abrir-animacion {
+            animation: abrirCaja 0.6s forwards !important;
+        }
+
+        @keyframes abrirCaja {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3) rotate(15deg); opacity: 1; }
+            100% { transform: scale(0) rotate(-30deg); opacity: 0; }
+        }
+
+        /* Pop-up de Premios */
+        .pantalla-premio {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .tarjeta-premio {
+            background: #1c2035;
+            padding: 35px;
+            border-radius: 25px;
+            text-align: center;
+            border: 3px solid #ffaa00;
+            box-shadow: 0 0 35px rgba(255, 170, 0, 0.5);
+            transform: scale(0.7);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 320px;
+        }
+
+        .tarjeta-premio.mostrar {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .imagen-premio {
+            font-size: 85px;
+            margin: 15px 0;
+            display: inline-block;
+        }
+
+        .animar-pet {
+            animation: flotarPet 1.8s ease-in-out infinite;
+        }
+
+        @keyframes flotarPet {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .boton-cerrar {
+            background-color: #ffaa00;
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* --- VISTA DE BLOQUEO (TICKET / QR) --- */
+        .contenedor-bloqueo {
+            display: none;
+            background: #1b1f38;
+            border: 3px dashed #ff3366;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 340px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .codigo-texto {
+            font-size: 22px;
+            font-weight: bold;
+            color: #00fff0;
+            background: #111424;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 15px 0;
+            letter-spacing: 2px;
+            border: 1px solid #28315a;
+        }
+
+        .qr-imagen {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 15px;
+            width: 150px;
+            height: 150px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Interfaz del Juego Activo -->
+    <div id="interfaz-juego" style="display: flex; flex-direction: column; align-items: center;">
+        <div class="estado-recompensa" id="texto-estado">¡Tienes tu Recompensa Única disponible!</div>
+        <div class="contenedor-caja">
+            <div class="caja disponible" id="caja-render" onclick="abrirCajaSorpresa()"></div>
+        </div>
+    </div>
+
+    <!-- Interfaz de Bloqueo Permanente (Ticket + QR) -->
+    <div class="contenedor-bloqueo" id="interfaz-bloqueo">
+        <h2 style="color: #ff3366; margin-top: 0;">¡RECOMPENSA AGOTADA!</h2>
+        <p>Ya abriste tu caja. Toma una captura a tu código o escanea el QR para reclamarlo:</p>
+        <div id="premio-guardado" style="font-weight: bold; color: #ffaa00; margin-bottom: 5px;"></div>
+        <div class="codigo-texto" id="codigo-ticket">CÓDIGO</div>
+        <img class="qr-imagen" id="qr-ticket" src="" alt="Código QR de validación">
+    </div>
+
+    <!-- Ventana del premio (Pop-up Inicial) -->
+    <div class="pantalla-premio" id="pantalla-premio">
+        <div class="tarjeta-premio" id="tarjeta-premio">
+            <h2>¡RECOMPENSA RECLAMADA!</h2>
+            <div id="icono-premio" class="imagen-premio">🎁</div>
+            <p id="texto-premio" style="font-size: 18px; font-weight: bold;"></p>
+            <p style="font-size: 13px; color: #aaa;">Al cerrar esta ventana verás tu comprobante QR.</p>
+            <button class="boton-cerrar" onclick="cerrarVentana()">Obtener mi QR</button>
+        </div>
+    </div>
+
+    <script>
+        const caja = document.getElementById("caja-render");
+        const juegoContenedor = document.getElementById("interfaz-juego");
+        const bloqueoContenedor = document.getElementById("interfaz-bloqueo");
+
+        const premios = [
+            { nombre: "200 Bucks de saldo 💰", animada: false, probabilidad: 0.05 }, 
+            { nombre: "400 Bucks de saldo 💳", animada: false, probabilidad: 0.03 }, 
+            { nombre: "600 Bucks de saldo 🧳", animada: false, probabilidad: 0.02 }, 
+            { nombre: "una Pet Común 🐶", animada: true, probabilidad: 0.35 },      
+            { nombre: "una Pet Poco Común 🐸", animada: true, probabilidad: 0.15 }  
+        ];
+
+        window.onload = function() {
+            verificarHistorial();
+        };
+
+        function verificarHistorial() {
+            // Comprobamos si ya existe un registro de apertura en el navegador
+            const yaReclamado = localStorage.getItem("cajaReclamada");
+            
+            if (yaReclamado === "true") {
+                // Ocultar juego por completo
+                juegoContenedor.style.display = "none";
+                
+                // Cargar los datos guardados de la recompensa
+                const premioObtenido = localStorage.getItem("premioNombre") || "Recompensa procesada";
+                const codigoUnico = localStorage.getItem("premioCodigo") || "USED-BOX";
+                
+                document.getElementById("premio-guardado").innerText = "Premio: " + premioObtenido;
+                document.getElementById("codigo-ticket").innerText = codigoUnico;
+                
+                // Generar el QR apuntando al código de verificación
+                document.getElementById("qr-ticket").src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(codigoUnico);
+                
+                // Mostrar la tarjeta de bloqueo permanente
+                bloqueoContenedor.style.display = "block";
+            }
+        }
+
+        function abrirCajaSorpresa() {
+            if (localStorage.getItem("cajaReclamada") === "true") return;
+
+            caja.classList.remove("disponible");
+            caja.classList.add("abrir-animacion");
+
+            setTimeout(() => {
+                calcularPremio();
+            }, 600);
+        }
+
+        function calcularPremio() {
+            const azar = Math.random();
+            let suma = 0;
+            let premioGanado = null;
+
+            for (let p of premios) {
+                suma += p.probabilidad;
+                if (azar <= suma) {
+                    premioGanado = p;
+                    break;
+                }
+            }
+
+            let nombreFinal = "";
+            let emoji = "❌";
+            let esAnimado = false;
+
+            if (!premioGanado) {
+                nombreFinal = "Caja Vacía (Suerte la próxima)";
+            } else {
+                nombreFinal = premioGanado.nombre;
+                esAnimado = premioGanado.animada;
+                const partes = premioGanado.nombre.split(" ");
+                emoji = partes[partes.length - 1];
+            }
+
+            // --- GENERACIÓN DEL CÓDIGO ÚNICO DE SEGURIDAD ---
+            // Crea un código al azar (Ejemplo: RECOMPENSA-74A9B) para evitar duplicados
+            const caracteres = "ABCDEF0123456789";
+            let codigoAleatorio = "REC-";
+            for (let i = 0; i < 5; i++) {
+                codigoAleatorio += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+            }
+
+            // GUARDAR DE FORMA DEFINITIVA EN EL NAVEGADOR
+            localStorage.setItem("cajaReclamada", "true");
+            localStorage.setItem("premioNombre", nombreFinal);
+            localStorage.setItem("premioCodigo", codigoAleatorio);
+
+            // Rellenar Pop-up
+            document.getElementById("texto-premio").innerText = "Premio: " + nombreFinal;
+            const iconoPremio = document.getElementById("icono-premio");
+            iconoPremio.innerText = emoji;
+
+            if (esAnimado) {
+                iconoPremio.classList.add("animar-pet");
+            } else {
+                iconoPremio.classList.remove("animar-pet");
+            }
+
+            // Mostrar Pop-up
+            document.getElementById("pantalla-premio").style.display = "flex";
+            setTimeout(() => {
+                document.getElementById("tarjeta-premio").classList.add("mostrar");
+            }, 50);
+        }
+
+        function cerrarVentana() {
+            document.getElementById("tarjeta-premio").classList.remove("mostrar");
+            document.getElementById("pantalla-premio").style.display = "none";
+            // Cambiar inmediatamente la interfaz al modo bloqueo con el QR
+            verificarHistorial();
+        }
+    </script>
+</body>
+  </html>
+  
